@@ -100,7 +100,6 @@ func newLoginCmd(st *state) *cobra.Command {
 				MfaToken:     mfaToken,
 			}
 
-			br := bufio.NewReader(os.Stdin)
 			start := time.Now()
 			for {
 				tok, mfa, err := oauthPassword(ctx, st, cmd, browser, req)
@@ -152,11 +151,12 @@ func newLoginCmd(st *state) *cobra.Command {
 					}
 
 					fmt.Fprintf(cmd.ErrOrStderr(), "MFA (%s) code: ", mfa.Channel)
-					code, err := readLineWithTimeout(ctx, br, remaining)
+					b, err := readPasswordWithTimeout(ctx, remaining)
+					fmt.Fprintln(cmd.ErrOrStderr())
 					if err != nil {
 						return err
 					}
-					code = strings.TrimSpace(code)
+					code := strings.TrimSpace(string(b))
 					if code == "" {
 						continue
 					}
@@ -248,16 +248,16 @@ func oauthPassword(ctx context.Context, st *state, cmd *cobra.Command, browser b
 	return tok, mfa, nil
 }
 
-type readLineResult struct {
-	s   string
+type readPasswordResult struct {
+	b   []byte
 	err error
 }
 
-func readLineWithTimeout(ctx context.Context, r *bufio.Reader, timeout time.Duration) (string, error) {
-	ch := make(chan readLineResult, 1)
+func readPasswordWithTimeout(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	ch := make(chan readPasswordResult, 1)
 	go func() {
-		s, err := r.ReadString('\n')
-		ch <- readLineResult{s: s, err: err}
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
+		ch <- readPasswordResult{b: b, err: err}
 	}()
 
 	var timer <-chan time.Time
@@ -267,14 +267,14 @@ func readLineWithTimeout(ctx context.Context, r *bufio.Reader, timeout time.Dura
 
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return nil, ctx.Err()
 	case res := <-ch:
-		if res.err != nil && !errors.Is(res.err, io.EOF) {
-			return "", res.err
+		if res.err != nil {
+			return nil, res.err
 		}
-		return res.s, nil
+		return res.b, nil
 	case <-timer:
-		return "", errors.New("timed out waiting for input")
+		return nil, errors.New("timed out waiting for input")
 	}
 }
 
