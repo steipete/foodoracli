@@ -36,6 +36,12 @@ export FOODORA_CLIENT_SECRET='...'
 ./foodoracli login --email you@example.com --password-stdin
 ```
 
+Or fetch it via Firebase Remote Config (APK-derived config) and store in your local config:
+
+```sh
+./foodoracli secret fetch --store
+```
+
 If MFA triggers, rerun with the printed `--mfa-token` and pass `--otp <CODE>`.
 
 ## Orders
@@ -49,4 +55,3 @@ If MFA triggers, rerun with the printed `--mfa-token` and pass `--otp <CODE>`.
 ## Safety
 
 This talks to private APIs. Use at your own risk; rate limits / bot protection may block requests.
-

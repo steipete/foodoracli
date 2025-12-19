@@ -40,6 +40,7 @@ func newRoot() *cobra.Command {
 	cmd.AddCommand(newConfigCmd(st))
 	cmd.AddCommand(newLoginCmd(st))
 	cmd.AddCommand(newLogoutCmd(st))
+	cmd.AddCommand(newSecretCmd(st))
 	cmd.AddCommand(newOrdersCmd(st))
 	cmd.AddCommand(newOrderCmd(st))
 
