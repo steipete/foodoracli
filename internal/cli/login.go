@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,8 @@ func newLoginCmd(st *state) *cobra.Command {
 	var storeClientSecret bool
 	var browser bool
 	var clientID string
+	var waitForOTP bool
+	var otpTimeout time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -87,9 +90,6 @@ func newLoginCmd(st *state) *cobra.Command {
 			}
 
 			ctx := cmd.Context()
-			var tok foodora.AuthToken
-			var mfa *foodora.MfaChallenge
-
 			req := foodora.OAuthPasswordRequest{
 				Username:     email,
 				Password:     password,
@@ -100,67 +100,33 @@ func newLoginCmd(st *state) *cobra.Command {
 				MfaToken:     mfaToken,
 			}
 
-			if browser {
-				bt, bmfa, sess, err := browserauth.OAuthTokenPassword(ctx, req, browserauth.PasswordOptions{
-					BaseURL:   st.cfg.BaseURL,
-					DeviceID:  st.cfg.DeviceID,
-					Timeout:   10 * time.Minute,
-					LogWriter: cmd.ErrOrStderr(),
-				})
+			br := bufio.NewReader(os.Stdin)
+			start := time.Now()
+			for {
+				tok, mfa, err := oauthPassword(ctx, st, cmd, browser, req)
 				if err != nil {
 					return err
 				}
-				tok, mfa = bt, bmfa
 
-				if sess.CookieHeader != "" {
-					if st.cfg.CookiesByHost == nil {
-						st.cfg.CookiesByHost = map[string]string{}
-					}
-					st.cfg.CookiesByHost[strings.ToLower(sess.Host)] = sess.CookieHeader
+				if tok.AccessToken != "" {
+					now := time.Now()
+					st.cfg.OAuthClientID = clientID
+					st.cfg.PendingMfaToken = ""
+					st.cfg.PendingMfaChannel = ""
+					st.cfg.PendingMfaEmail = ""
+					st.cfg.PendingMfaCreatedAt = time.Time{}
+					st.cfg.AccessToken = tok.AccessToken
+					st.cfg.RefreshToken = tok.RefreshToken
+					st.cfg.ExpiresAt = tok.ExpiresAt(now)
 					st.markDirty()
-				}
-				if sess.UserAgent != "" {
-					st.cfg.HTTPUserAgent = sess.UserAgent
-					st.markDirty()
-				}
-			} else {
-				_, cookie := st.cookieHeaderForBaseURL()
-				prof := st.appHeaders()
-				ua := st.cfg.HTTPUserAgent
-				if ua == "" && prof.UserAgent != "" {
-					ua = prof.UserAgent
-				}
-				if ua == "" {
-					ua = "foodoracli/" + version.Version
+					fmt.Fprintln(cmd.OutOrStdout(), "ok")
+					return nil
 				}
 
-				c, err := foodora.New(foodora.Options{
-					BaseURL:          st.cfg.BaseURL,
-					DeviceID:         st.cfg.DeviceID,
-					GlobalEntityID:   st.cfg.GlobalEntityID,
-					TargetCountryISO: st.cfg.TargetCountryISO,
-					UserAgent:        ua,
-					CookieHeader:     cookie,
-					FPAPIKey:         prof.FPAPIKey,
-					AppName:          prof.AppName,
-					OriginalUserAgent: func() string {
-						if strings.HasPrefix(ua, "Android-app-") {
-							return ua
-						}
-						return ""
-					}(),
-				})
-				if err != nil {
-					return err
+				if mfa == nil {
+					return errors.New("login failed: missing access_token and no MFA challenge")
 				}
 
-				tok, mfa, err = c.OAuthTokenPassword(ctx, req)
-				if err != nil {
-					return err
-				}
-			}
-
-			if mfa != nil && tok.AccessToken == "" {
 				st.cfg.PendingMfaToken = mfa.MfaToken
 				st.cfg.PendingMfaChannel = mfa.Channel
 				if mfa.Email != "" {
@@ -171,24 +137,36 @@ func newLoginCmd(st *state) *cobra.Command {
 				st.cfg.PendingMfaCreatedAt = time.Now()
 				st.markDirty()
 
-				fmt.Fprintf(cmd.ErrOrStderr(), "MFA triggered (%s). Check your %s. Retry with:\n", mfa.Channel, mfa.Channel)
-				fmt.Fprintf(cmd.ErrOrStderr(), "  foodoracli login --email %s --otp-method %s --otp <CODE>\n", email, mfa.Channel)
-				fmt.Fprintf(cmd.ErrOrStderr(), "rate limit reset: %ds\n", mfa.RateLimitReset)
-				return nil
-			}
+				if !waitForOTP || !term.IsTerminal(int(os.Stdin.Fd())) {
+					fmt.Fprintf(cmd.ErrOrStderr(), "MFA triggered (%s). Check your %s. Retry with:\n", mfa.Channel, mfa.Channel)
+					fmt.Fprintf(cmd.ErrOrStderr(), "  foodoracli login --email %s --otp-method %s --otp <CODE>\n", email, mfa.Channel)
+					fmt.Fprintf(cmd.ErrOrStderr(), "rate limit reset: %ds\n", mfa.RateLimitReset)
+					return nil
+				}
 
-			now := time.Now()
-			st.cfg.OAuthClientID = clientID
-			st.cfg.PendingMfaToken = ""
-			st.cfg.PendingMfaChannel = ""
-			st.cfg.PendingMfaEmail = ""
-			st.cfg.PendingMfaCreatedAt = time.Time{}
-			st.cfg.AccessToken = tok.AccessToken
-			st.cfg.RefreshToken = tok.RefreshToken
-			st.cfg.ExpiresAt = tok.ExpiresAt(now)
-			st.markDirty()
-			fmt.Fprintln(cmd.OutOrStdout(), "ok")
-			return nil
+				deadline := start.Add(otpTimeout)
+				for {
+					remaining := time.Until(deadline)
+					if otpTimeout > 0 && remaining <= 0 {
+						return fmt.Errorf("timed out waiting for OTP (%s)", mfa.Channel)
+					}
+
+					fmt.Fprintf(cmd.ErrOrStderr(), "MFA (%s) code: ", mfa.Channel)
+					code, err := readLineWithTimeout(ctx, br, remaining)
+					if err != nil {
+						return err
+					}
+					code = strings.TrimSpace(code)
+					if code == "" {
+						continue
+					}
+
+					req.MfaToken = mfa.MfaToken
+					req.OTPMethod = mfa.Channel
+					req.OTPCode = code
+					break
+				}
+			}
 		},
 	}
 
@@ -198,11 +176,106 @@ func newLoginCmd(st *state) *cobra.Command {
 	cmd.Flags().StringVar(&otpMethod, "otp-method", "sms", "OTP/MFA channel (e.g. sms, call)")
 	cmd.Flags().StringVar(&mfaToken, "mfa-token", "", "MFA token from a prior mfa_triggered response")
 	cmd.Flags().StringVar(&otp, "otp", "", "OTP code for MFA verification")
+	cmd.Flags().BoolVar(&waitForOTP, "wait-for-otp", true, "prompt for OTP and retry automatically (TTY only)")
+	cmd.Flags().DurationVar(&otpTimeout, "otp-timeout", 10*time.Minute, "how long to wait for OTP when prompting")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "oauth client_id (default: config or android)")
 	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "oauth client secret (optional; otherwise auto-fetched)")
 	cmd.Flags().BoolVar(&storeClientSecret, "store-client-secret", false, "persist --client-secret into config file")
 	cmd.Flags().BoolVar(&browser, "browser", false, "use an interactive Playwright browser session (helps with Cloudflare)")
 	return cmd
+}
+
+func oauthPassword(ctx context.Context, st *state, cmd *cobra.Command, browser bool, req foodora.OAuthPasswordRequest) (foodora.AuthToken, *foodora.MfaChallenge, error) {
+	if browser {
+		tok, mfa, sess, err := browserauth.OAuthTokenPassword(ctx, req, browserauth.PasswordOptions{
+			BaseURL:   st.cfg.BaseURL,
+			DeviceID:  st.cfg.DeviceID,
+			Timeout:   10 * time.Minute,
+			LogWriter: cmd.ErrOrStderr(),
+		})
+		if err != nil {
+			return foodora.AuthToken{}, nil, err
+		}
+
+		if sess.CookieHeader != "" {
+			if st.cfg.CookiesByHost == nil {
+				st.cfg.CookiesByHost = map[string]string{}
+			}
+			st.cfg.CookiesByHost[strings.ToLower(sess.Host)] = sess.CookieHeader
+			st.markDirty()
+		}
+		if sess.UserAgent != "" {
+			st.cfg.HTTPUserAgent = sess.UserAgent
+			st.markDirty()
+		}
+		return tok, mfa, nil
+	}
+
+	_, cookie := st.cookieHeaderForBaseURL()
+	prof := st.appHeaders()
+	ua := st.cfg.HTTPUserAgent
+	if ua == "" && prof.UserAgent != "" {
+		ua = prof.UserAgent
+	}
+	if ua == "" {
+		ua = "foodoracli/" + version.Version
+	}
+
+	c, err := foodora.New(foodora.Options{
+		BaseURL:          st.cfg.BaseURL,
+		DeviceID:         st.cfg.DeviceID,
+		GlobalEntityID:   st.cfg.GlobalEntityID,
+		TargetCountryISO: st.cfg.TargetCountryISO,
+		UserAgent:        ua,
+		CookieHeader:     cookie,
+		FPAPIKey:         prof.FPAPIKey,
+		AppName:          prof.AppName,
+		OriginalUserAgent: func() string {
+			if strings.HasPrefix(ua, "Android-app-") {
+				return ua
+			}
+			return ""
+		}(),
+	})
+	if err != nil {
+		return foodora.AuthToken{}, nil, err
+	}
+
+	tok, mfa, err := c.OAuthTokenPassword(ctx, req)
+	if err != nil {
+		return foodora.AuthToken{}, nil, err
+	}
+	return tok, mfa, nil
+}
+
+type readLineResult struct {
+	s   string
+	err error
+}
+
+func readLineWithTimeout(ctx context.Context, r *bufio.Reader, timeout time.Duration) (string, error) {
+	ch := make(chan readLineResult, 1)
+	go func() {
+		s, err := r.ReadString('\n')
+		ch <- readLineResult{s: s, err: err}
+	}()
+
+	var timer <-chan time.Time
+	if timeout > 0 {
+		timer = time.After(timeout)
+	}
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-ch:
+		if res.err != nil && !errors.Is(res.err, io.EOF) {
+			return "", res.err
+		}
+		return res.s, nil
+	case <-timer:
+		return "", errors.New("timed out waiting for input")
+	}
 }
 
 func newLogoutCmd(st *state) *cobra.Command {

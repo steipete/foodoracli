@@ -39,7 +39,7 @@ export FOODORA_CLIENT_SECRET='...'
 ./foodoracli login --email you@example.com --password-stdin
 ```
 
-If MFA triggers, `foodoracli` stores the MFA token locally and prints a safe retry command. Rerun with `--otp <CODE>`.
+If MFA triggers and you're running in a TTY, `foodoracli` prompts for the OTP code and retries automatically. Otherwise it stores the MFA token locally and prints a safe retry command (`--otp <CODE>`).
 
 ### Client headers
 
