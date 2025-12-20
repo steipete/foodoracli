@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (Unreleased)
+## 0.1.0 (2025-12-20)
 
 - Initial CLI (`login`, `orders`, `order`, `config`, `countries`)
 - Rename project to `ordercli` + provider-first commands (`ordercli <provider> ...`)
