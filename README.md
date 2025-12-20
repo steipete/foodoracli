@@ -2,9 +2,16 @@
 
 Go CLI: multi-provider food order history + status.
 
+Repo: `github.com/steipete/ordercli`
+
 Providers:
 - `foodora` (working)
-- `deliveroo` (basic/WIP; requires `DELIVEROO_BEARER_TOKEN`)
+- `deliveroo` (work in progress; requires `DELIVEROO_BEARER_TOKEN`)
+
+Concepts (shared CLI UX; provider-specific implementations):
+- `history` (past orders)
+- `orders` (active orders)
+- `order` / `history show` (details)
 
 ## Build
 
@@ -119,6 +126,7 @@ Requires a valid bearer token (no bypass):
 ```sh
 export DELIVEROO_BEARER_TOKEN='...'
 ./ordercli deliveroo history
+./ordercli deliveroo orders
 ```
 
 ## Safety
