@@ -159,6 +159,26 @@ func (c *Client) OrderHistory(ctx context.Context, req OrderHistoryRequest) (Ord
 	return out, nil
 }
 
+func (c *Client) OrderHistoryByCode(ctx context.Context, req OrderHistoryByCodeRequest) (OrderHistoryRawResponse, error) {
+	var out OrderHistoryRawResponse
+	if strings.TrimSpace(req.OrderCode) == "" {
+		return out, errors.New("order history: missing order code")
+	}
+	q := url.Values{}
+	include := req.Include
+	if include == "" {
+		include = "order_products,order_details"
+	}
+	q.Set("include", include)
+	q.Set("order_code", req.OrderCode)
+	q.Set("item_replacement", strconv.FormatBool(req.ItemReplacement))
+
+	if err := c.getJSON(ctx, "orders/order_history", q, &out); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 type oauthHeaders struct {
 	otpMethod string
 	otpCode   string

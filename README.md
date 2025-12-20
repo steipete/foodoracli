@@ -104,6 +104,7 @@ If `session refresh` errors with “refresh token … not found”, that site se
 ./foodcli orders --watch
 ./foodcli history
 ./foodcli history --limit 50
+./foodcli history show <orderCode>
 ./foodcli order <orderCode>
 ```
 

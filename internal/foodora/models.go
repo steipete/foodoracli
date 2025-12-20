@@ -110,3 +110,19 @@ type OrderHistoryTime struct {
 	Date     FlexibleTime `json:"date"`
 	Timezone string       `json:"timezone"`
 }
+
+type OrderHistoryByCodeRequest struct {
+	OrderCode       string
+	Include         string
+	ItemReplacement bool
+}
+
+type OrderHistoryRawResponse struct {
+	Status int                 `json:"status"`
+	Data   OrderHistoryRawData `json:"data"`
+}
+
+type OrderHistoryRawData struct {
+	TotalCount FlexibleInt      `json:"total_count"`
+	Items      []map[string]any `json:"items"`
+}

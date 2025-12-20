@@ -17,6 +17,7 @@ func newHistoryCmd(st *state) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "List past orders",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := newAuthedClient(st)
 			if err != nil {
@@ -89,6 +90,7 @@ func newHistoryCmd(st *state) *cobra.Command {
 	cmd.Flags().StringVar(&include, "include", "order_products,order_details", "include fields")
 	cmd.Flags().BoolVar(&pandagoEnabled, "pandago-enabled", false, "set pandago_enabled=true")
 
+	cmd.AddCommand(newHistoryShowCmd(st))
 	return cmd
 }
 

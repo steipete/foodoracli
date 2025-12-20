@@ -5,6 +5,7 @@
 - Initial CLI (`login`, `orders`, `order`, `config`, `countries`)
 - Rename project to `foodcli`
 - Past orders (`history` via `orders/order_history`)
+- Historical order details (`history show <orderCode>`)
 - Auto-fetch/cache OAuth `client_secret` from Firebase Remote Config
 - OAuth token flow with refresh + MFA detection (`mfa_triggered`)
 - Interactive OTP prompt + retry (TTY)
