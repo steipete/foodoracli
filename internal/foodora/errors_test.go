@@ -2,6 +2,7 @@ package foodora
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -25,5 +26,48 @@ func TestParseMfaTriggered(t *testing.T) {
 	}
 	if ch.Channel != "sms" || ch.Email != "peter@example.com" || ch.MfaToken != "tok123" || ch.RateLimitReset != 12 {
 		t.Fatalf("unexpected challenge: %#v", ch)
+	}
+}
+
+func TestRedactSensitive_JSON(t *testing.T) {
+	raw := []byte(`{
+  "access_token":"a",
+  "refresh_token":"r",
+  "client_secret":"s",
+  "password":"p",
+  "otp":"o",
+  "address":{"id":"123","street":"Main"},
+  "nested":{"mfa_token":"m"}
+}`)
+	out := redactSensitive(raw)
+
+	for _, leak := range []string{`"a"`, `"r"`, `"s"`, `"p"`, `"o"`, `"m"`, "Main"} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("redaction leaked %q: %s", leak, out)
+		}
+	}
+	for _, want := range []string{`"access_token":"***"`, `"refresh_token":"***"`, `"client_secret":"***"`, `"password":"***"`, `"otp":"***"`, `"mfa_token":"***"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected %q in: %s", want, out)
+		}
+	}
+	if !strings.Contains(out, `"address":"***"`) {
+		t.Fatalf("expected address redaction in: %s", out)
+	}
+}
+
+func TestHTTPError_Error_Redacts(t *testing.T) {
+	e := &HTTPError{
+		Method:     "POST",
+		URL:        "https://example.invalid",
+		StatusCode: 401,
+		Body:       []byte(`{"password":"pwSECRET","address":{"street":"streetSECRET"},"access_token":"tokenSECRET"}`),
+	}
+	s := e.Error()
+	if strings.Contains(s, "pwSECRET") || strings.Contains(s, "streetSECRET") || strings.Contains(s, "tokenSECRET") {
+		t.Fatalf("leaked sensitive data: %s", s)
+	}
+	if !strings.Contains(s, "***") {
+		t.Fatalf("expected redaction marker: %s", s)
 	}
 }
