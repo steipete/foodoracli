@@ -15,10 +15,10 @@ type FlexibleTime struct {
 }
 
 func (t FlexibleTime) String() string {
-	if t.Time.IsZero() {
+	if t.IsZero() {
 		return ""
 	}
-	return t.Time.Format(time.RFC3339)
+	return t.Format(time.RFC3339)
 }
 
 func (t *FlexibleTime) UnmarshalJSON(b []byte) error {

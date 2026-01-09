@@ -115,8 +115,8 @@ func historyStatus(s *foodora.OrderHistoryStatus) string {
 }
 
 func historyTime(t *foodora.OrderHistoryTime) string {
-	if t == nil || t.Date.Time.IsZero() {
+	if t == nil || t.Date.IsZero() {
 		return ""
 	}
-	return t.Date.Time.In(time.Local).Format(time.RFC3339)
+	return t.Date.In(time.Local).Format(time.RFC3339)
 }

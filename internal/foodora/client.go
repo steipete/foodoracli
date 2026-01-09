@@ -278,7 +278,7 @@ func (c *Client) oauthToken(ctx context.Context, form url.Values, h oauthHeaders
 
 func (c *Client) getJSON(ctx context.Context, path string, query url.Values, out any) error {
 	u := c.baseURL.ResolveReference(&url.URL{Path: path})
-	if query != nil && len(query) > 0 {
+	if len(query) > 0 {
 		u.RawQuery = query.Encode()
 	}
 
@@ -350,7 +350,7 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, out
 
 func (c *Client) postJSON(ctx context.Context, path string, query url.Values, in any, out any) error {
 	u := c.baseURL.ResolveReference(&url.URL{Path: path})
-	if query != nil && len(query) > 0 {
+	if len(query) > 0 {
 		u.RawQuery = query.Encode()
 	}
 

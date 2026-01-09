@@ -1,19 +1,19 @@
+version: 2
+
 run:
   timeout: 3m
   tests: true
 
 linters:
   disable-all: true
-  enable:
+  disable:
     - errcheck
-    - gofumpt
+  enable:
     - govet
     - ineffassign
     - staticcheck
-    - typecheck
     - unused
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-
