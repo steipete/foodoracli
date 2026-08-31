@@ -50,7 +50,7 @@ func ReadText(ctx context.Context, targetURL string, opts Options) (Result, erro
 	}
 	pw := strings.TrimSpace(opts.Playwright)
 	if pw == "" {
-		pw = "playwright@1.61.1"
+		pw = "playwright@1.62.1"
 	}
 
 	td, err := os.MkdirTemp("", "ordercli-browserpage-*")

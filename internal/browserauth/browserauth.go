@@ -62,7 +62,7 @@ func OAuthTokenPassword(ctx context.Context, req foodora.OAuthPasswordRequest, o
 	}
 	pw := opts.Playwright
 	if pw == "" {
-		pw = "playwright@1.61.1"
+		pw = "playwright@1.62.1"
 	}
 
 	td, err := os.MkdirTemp("", "ordercli-browserauth-*")

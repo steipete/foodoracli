@@ -168,7 +168,7 @@ func TestEnsureNpmProject_Installs_WithFakeNpm(t *testing.T) {
 set -e
 mkdir -p node_modules/chrome-cookies-secure node_modules/tar node_modules/@tootallnate/once
 echo '{"name":"chrome-cookies-secure","version":"3.0.2"}' > node_modules/chrome-cookies-secure/package.json
-echo '{"name":"tar","version":"7.5.20"}' > node_modules/tar/package.json
+echo '{"name":"tar","version":"7.5.22"}' > node_modules/tar/package.json
 echo '{"name":"@tootallnate/once","version":"2.0.1"}' > node_modules/@tootallnate/once/package.json
 exit 0
 `)
@@ -188,7 +188,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("read package.json: %v", err)
 	}
-	for _, want := range []string{`"chrome-cookies-secure":"3.0.2"`, `"tar":"7.5.20"`, `"@tootallnate/once":"2.0.1"`} {
+	for _, want := range []string{`"chrome-cookies-secure":"3.0.2"`, `"tar":"7.5.22"`, `"@tootallnate/once":"2.0.1"`} {
 		if !strings.Contains(string(pkg), want) {
 			t.Errorf("package.json missing %s: %s", want, pkg)
 		}
@@ -203,9 +203,10 @@ func TestEnsureNpmProject_RefreshesStaleConfig(t *testing.T) {
 	writeExe(t, filepath.Join(fakeBin, "npm"), `#!/bin/sh
 set -e
 touch npm-invoked
+echo "$*" >> npm-commands
 mkdir -p node_modules/chrome-cookies-secure node_modules/tar node_modules/@tootallnate/once
 echo '{"name":"chrome-cookies-secure","version":"3.0.2"}' > node_modules/chrome-cookies-secure/package.json
-echo '{"name":"tar","version":"7.5.20"}' > node_modules/tar/package.json
+echo '{"name":"tar","version":"7.5.22"}' > node_modules/tar/package.json
 echo '{"name":"@tootallnate/once","version":"2.0.1"}' > node_modules/@tootallnate/once/package.json
 exit 0
 `)
@@ -229,6 +230,14 @@ exit 0
 	if _, err := os.Stat(filepath.Join(dir, "npm-invoked")); err != nil {
 		t.Fatalf("expected npm reinstall: %v", err)
 	}
+	commands, err := os.ReadFile(filepath.Join(dir, "npm-commands"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "install --silent --no-progress --no-fund --no-audit\nrebuild --silent --no-progress --no-fund --no-audit sqlite3 keytar\n"
+	if string(commands) != want {
+		t.Fatalf("expected install then native binding rebuild, got %q", commands)
+	}
 }
 
 func TestVerifyInstalledNpmDependencies_RejectsStaleOverride(t *testing.T) {
@@ -249,7 +258,7 @@ func TestVerifyInstalledNpmDependencies_RejectsStaleOverride(t *testing.T) {
 	}
 
 	err := verifyInstalledNpmDependencies(dir)
-	if err == nil || !strings.Contains(err.Error(), "installed tar version 7.5.15, want 7.5.20") {
+	if err == nil || !strings.Contains(err.Error(), "installed tar version 7.5.15, want 7.5.22") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

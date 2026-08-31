@@ -18,6 +18,8 @@ Config lives in your OS config dir by default; override for testing:
 
 ## Build
 
+Requires Go 1.27 or newer.
+
 ```sh
 go test ./...
 go build ./cmd/ordercli
@@ -31,7 +33,7 @@ docker run --rm -v "$PWD/.ordercli:/data" ordercli foodora config show
 docker run --rm -it -v "$PWD/.ordercli:/data" ordercli foodora login --email you@example.com --password-stdin --browser
 ```
 
-The image includes Node and Playwright Chromium for browser-backed login/status helpers. Host Chrome cookie import still needs explicit cookie DB mounts.
+The image includes Node 26 and Playwright Chromium for browser-backed login/status helpers. Host Chrome cookie import still needs explicit cookie DB mounts.
 
 ## foodora
 
@@ -111,6 +113,8 @@ If the bot cookies live on the website domain (e.g. `https://www.foodora.at/`), 
 ```
 
 If you have multiple profiles, try `--profile "Profile 1"` (or pass a profile path / Cookies DB via `--cookie-path`).
+
+The cached cookie helper approves the pinned SQLite and Keychain native build scripts required by npm 12 and rebuilds them when refreshing its dependencies.
 
 ### Import session from Chrome (no password)
 

@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Dependencies: update Go to 1.26, npm to 12.0.1, Playwright to 1.61.1, current Go terminal/system libraries, and cached Chrome cookie support to 3.0.2 with audited transitive overrides.
+- Dependencies: update Go to 1.27, Docker Node to 26.8.1, npm to 12.0.2, Playwright to 1.62.1, current Go terminal/system libraries, and cached Chrome cookie support to 3.0.2 with audited transitive overrides (tar 7.5.22).
+- Chrome cookies: explicitly approve native dependency builds for npm 12 and rebuild cached installs that skipped them.
 - Docker: add a local image with Node, Playwright Chromium, `/data` persistence, and CI smoke coverage.
 - Add Sweden (`SE`) Foodora preset using `OP_SE`. (`#4`, thanks `@grenish`)
 - Add Czech Republic (`CZ`) Foodora preset using `DJ_CZ`. (`#6`, thanks `@usimic`)

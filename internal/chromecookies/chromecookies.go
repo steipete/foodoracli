@@ -19,8 +19,10 @@ import (
 var loadScript []byte
 
 // Keep the install-time overrides until chrome-cookies-secure drops its vulnerable build chain.
+// once v3 is ESM-only; the upstream proxy agent requires CommonJS.
+// npm 12 needs explicit approvals for the native SQLite and Keychain bindings.
 const (
-	npmPackageJSON = `{"private":true,"type":"module","dependencies":{"chrome-cookies-secure":"3.0.2"},"overrides":{"tar":"7.5.20","@tootallnate/once":"2.0.1"}}`
+	npmPackageJSON = `{"private":true,"type":"module","dependencies":{"chrome-cookies-secure":"3.0.2"},"overrides":{"tar":"7.5.22","@tootallnate/once":"2.0.1"},"allowScripts":{"sqlite3@5.1.7":true,"keytar@7.9.0":true}}`
 	npmStateFile   = ".ordercli-dependencies"
 )
 
@@ -118,20 +120,24 @@ func ensureNpmProject(ctx context.Context, dir string, logWriter io.Writer) erro
 	cmdCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	install := exec.CommandContext(cmdCtx, "npm", "install", "--silent", "--no-progress", "--no-fund", "--no-audit") //nolint:gosec
-	install.Dir = dir
-	install.Stdout = io.Discard
-	if logWriter != nil {
-		install.Stderr = logWriter
-	} else {
-		install.Stderr = io.Discard
-	}
-	install.Env = append(
-		os.Environ(),
-		"npm_config_loglevel=error",
-	)
-	if err := install.Run(); err != nil {
-		return fmt.Errorf("chromecookies: npm install chrome-cookies-secure: %w", err)
+	for _, action := range []string{"install", "rebuild"} {
+		args := []string{action, "--silent", "--no-progress", "--no-fund", "--no-audit"}
+		if action == "rebuild" {
+			// Cached npm 12 installs may have skipped these scripts before approval.
+			args = append(args, "sqlite3", "keytar")
+		}
+		install := exec.CommandContext(cmdCtx, "npm", args...) //nolint:gosec
+		install.Dir = dir
+		install.Stdout = io.Discard
+		if logWriter != nil {
+			install.Stderr = logWriter
+		} else {
+			install.Stderr = io.Discard
+		}
+		install.Env = append(os.Environ(), "npm_config_loglevel=error")
+		if err := install.Run(); err != nil {
+			return fmt.Errorf("chromecookies: npm %s chrome-cookies-secure: %w", action, err)
+		}
 	}
 	if err := verifyInstalledNpmDependencies(dir); err != nil {
 		return err
@@ -158,7 +164,7 @@ func npmProjectCurrent(dir string) bool {
 func verifyInstalledNpmDependencies(dir string) error {
 	required := map[string]string{
 		"chrome-cookies-secure": "3.0.2",
-		"tar":                   "7.5.20",
+		"tar":                   "7.5.22",
 		"@tootallnate/once":     "2.0.1",
 	}
 	seen := make(map[string]bool, len(required))

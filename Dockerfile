@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.26
 
-ARG GO_VERSION=1.26
-ARG NPM_VERSION=12.0.1
-ARG PLAYWRIGHT_VERSION=1.61.1
+ARG GO_VERSION=1.27
+ARG NPM_VERSION=12.0.2
+ARG PLAYWRIGHT_VERSION=1.62.1
 
 FROM golang:${GO_VERSION}-bookworm AS build
 WORKDIR /src
@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/ordercli ./cmd/ordercli
 
-FROM node:24.18.0-bookworm-slim
+FROM node:26.8.1-bookworm-slim
 ARG NPM_VERSION
 ARG PLAYWRIGHT_VERSION
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
