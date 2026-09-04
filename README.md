@@ -20,6 +20,8 @@ Config lives in your OS config dir by default; override for testing:
 
 Requires Go 1.27 or newer.
 
+The preferred build toolchain is Go 1.27.1; CI also verifies the Go 1.27.0 source minimum.
+
 ```sh
 go test ./...
 go build ./cmd/ordercli

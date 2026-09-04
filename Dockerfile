@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.26
+# syntax=docker/dockerfile:1.27
 
-ARG GO_VERSION=1.27
+ARG GO_VERSION=1.27.1
 ARG NPM_VERSION=12.0.2
 ARG PLAYWRIGHT_VERSION=1.62.1
 

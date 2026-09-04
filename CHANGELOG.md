@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Build: prefer Go 1.27.1 while retaining Go 1.27.0 source support, test both versions in CI, and update the Dockerfile frontend to 1.27.
 - Dependencies: update Go to 1.27, Docker Node to 26.8.1, npm to 12.0.2, Playwright to 1.62.1, current Go terminal/system libraries, and cached Chrome cookie support to 3.0.2 with audited transitive overrides (tar 7.5.22).
 - Chrome cookies: explicitly approve native dependency builds for npm 12 and rebuild cached installs that skipped them.
 - Docker: add a local image with Node, Playwright Chromium, `/data` persistence, and CI smoke coverage.
